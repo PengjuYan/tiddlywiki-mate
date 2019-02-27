@@ -18,7 +18,6 @@ function save_options() {
   });
 }
 
-
 //from https://github.com/parshap/node-sanitize-filename/
 var illegalRe = /[\/\?<>\\:\*\|":]/;
 var ctlRe = /[\x00-\x1f\x80-\x9f]/;
@@ -41,6 +40,7 @@ chrome.runtime.getPlatformInfo(function (info) {
     test = function (value) { return (value.match(unixRe) || value.match(unixdotsRe)); }
   }
 });
+
 function check(element) {
 
   if (!test(element.value)) {
@@ -55,6 +55,7 @@ function check(element) {
     return false;
   }
 }
+
 // Restores select box and text fields
 function restore_options() {
   try {
@@ -62,8 +63,6 @@ function restore_options() {
       if (info.vendor != "Mozilla") document.getElementById('showand').hidden = false;
     });
   } catch (e) { document.getElementById('showand').hidden = false; }
-
-
 
   chrome.storage.local.get({
     homedir: "tiddlywikilocations",

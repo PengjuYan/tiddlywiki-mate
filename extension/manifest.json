@@ -8,16 +8,15 @@
       "strict_min_version": "56.0"
     }
   },
+  "icons": {
+    "48": "icons/soft-disk.svg",
+    "96": "icons/soft-disk.svg"
+  },
   "browser_action": {
     "default_icon": {
-      "48": "saver48.png"
+      "48": "icons/soft-disk.svg"
     },
     "default_popup": "popup.html"
-  },
-  "icons": {
-    "16": "saver16.png",
-    "48": "saver48.png",
-    "128": "saver128.png"
   },
   "content_scripts": [
     {

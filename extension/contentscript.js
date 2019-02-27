@@ -153,6 +153,7 @@ function saveFile(filePath, content, backup, tw5, callback) {
 		return false;
 	}
 }
+
 function finishSave(filePath, content, callback) {
 
 	// Save the file without control
