@@ -1,172 +1,195 @@
 /*
- * parts of this file is from https://github.com/Jermolene/TiddlyWiki5
+ * parts of this file is from https github.com/Jermolene/TiddlyWiki5
  * which is licensed under the BSD format copyright Jermolene Ruston
  */
 document.addEventListener('DOMContentLoaded', injectMessageBox, false);
 
-var patherrormsg = "Automatic saving not possible.\nAs your TW is not within the contolled directory a manual save is required";
-var othersaver1 = "savetiddlers has detected that another tiddlysaver called ";
-var othersaver2 = " is install. Currently only one saver is supported therefore - savetiddlers will not activate";
+var otherSaverSnippet1 = "TiddlyWiki Mate has detected another "
+    + "TiddlyFox-like saver called ";
+var otherSaverSnippet2 = ". Currently only one saver is supported, "
+    + "therefore TiddlyWiki Mate will not activate.";
+var pathErrorMessage = "Automatic saving not possible.\n\n"
+    + "As your TiddlyWiki is not within the contolled directory, "
+    + "a manual save is required.";
+var trialErrorMessage = "Automatic saving not possible.\n\n"
+    + "Saving to the relative directory in the system download directory was "
+    + "not successful.";
+var saveAsMessage = "Your TiddlyWiki has been saved to a new location: ";
+var finalSaveErrorMessage = "Sorry, but your TiddlyWiki ws not saved "
+    + "successfully for some reason!\n\nYou'll have to do something else "
+    + "to save your work.";
 
-var backup = true;
-var tw5 = true;
-/*
- * we may want to download a dummy file and use the download api to see 
- * if it lands in the correct dir,
- * the backgound would set a value we read here and if set save a test file.
- */
+var isTiddlyWiki = true;
 
-function currentlocation() {
-	// Get the pathname of this document
-	var pathname = window.location.toString().split("#")[0];
-	// Replace file://localhost/ with file:///
-	if (pathname.indexOf("file://localhost/") === 0) {
-		pathname = "file://" + pathname.substr(16);
-	}
-	// Windows path file:///x:/blah/blah --> x:\blah\blah
-	if (/^file\:\/\/\/[A-Z]\:\//i.test(pathname)) {
-		// Remove the leading slash and convert slashes to backslashes
-		pathname = decodeURI(pathname.substr(8)).replace(/\//g, "\\");
-		// Firefox Windows network path file://///server/share/blah/blah --> //server/share/blah/blah
-	} else if (pathname.indexOf("file://///") === 0) {
-		pathname = "\\\\" + decodeURI(pathname.substr(10)).replace(/\//g, "\\");
-		// Mac/Unix local path file:///path/path --> /path/path
-	} else if (pathname.indexOf("file:///") === 0) {
-		pathname = decodeURI(pathname.substr(7));
-		// Mac/Unix local path file:/path/path --> /path/path
-	} else if (pathname.indexOf("file:/") === 0) {
-		pathname = decodeURI(pathname.substr(5));
-		// Otherwise Windows networth path file://server/share/path/path --> \\server\share\path\path
-	} else {
-		pathname = "\\\\" + decodeURI(pathname.substr(7)).replace(new RegExp("/", "g"), "\\");
-	}
-
-	return pathname;
+function isTiddlyWikiClassic() {
+    // Test whether the document is a TiddlyWiki
+    // (we don't have access to JS objects in it)
+    var versionArea = document.getElementById("versionArea");
+    return (document.location.protocol === "file:")
+        && document.getElementById("storeArea")
+        && (versionArea && /TiddlyWiki/.test(versionArea.text));
 }
 
-function isTiddlyWikiClassic(doc) {
-	// Test whether the document is a TiddlyWiki (we don't have access to JS objects in it)
-	var versionArea = doc.getElementById("versionArea");
-	return (doc.location.protocol === "file:") &&
-		doc.getElementById("storeArea") &&
-		(versionArea && /TiddlyWiki/.test(versionArea.text));
+function injectMessageBox(event) {
+    if (isTiddlyWikiClassic()) {
+        var scriptNode = document.createElement('script');
+        scriptNode.src = chrome.extension.getURL('script.js');
+        (document.head || document.documentElement).appendChild(scriptNode);
+        scriptNode.onload = function () {
+            scriptNode.parentNode.removeChild(scriptNode);
+        };
+        isTiddlyWiki = false;
+    }
+
+    // Inject the message box
+    var messageBox = document.getElementById("tiddlyfox-message-box");
+    if (messageBox) {
+        var otherCreator = messageBox.getAttribute("data-message-box-creator")
+            || null;
+        if (otherCreator) {
+            alert(otherSaverSnippet1 + "\"" + otherCreator
+                + "\"" + otherSaverSnippet2);
+            return;
+        } else {
+            messageBox.setAttribute("data-message-box-creator",
+                "TiddlyWiki Mate");
+        }
+    } else {
+        messageBox = document.createElement("div");
+        messageBox.id = "tiddlyfox-message-box";
+        messageBox.style.display = "none";
+        messageBox.setAttribute("data-message-box-creator", "TiddlyWiki Mate");
+        document.body.appendChild(messageBox);
+    }
+
+    // Attach the event handler to the message box
+    messageBox.addEventListener("tiddlyfox-save-file", saveFileListener, false);
 }
 
-var debouncing = [];
+function saveFileListener(event) {
+    // Get the details from the message
+    var messageInfo = event.target,
+        path = messageInfo.getAttribute("data-tiddlyfox-path"),
+        content = messageInfo.getAttribute("data-tiddlyfox-content");
+    // Remove the message info element from the message box
+    messageInfo.parentNode.removeChild(messageInfo);
 
-function injectMessageBox(doc) {
-	var s;
-	doc = document;
-	if (isTiddlyWikiClassic(doc)) {
-		s = document.createElement('script');
-		s.src = chrome.extension.getURL('script.js');
-		(document.head || document.documentElement).appendChild(s);
-		s.onload = function () {
-			s.parentNode.removeChild(s);
-		};
-		tw5 = false;
-	}
-	// Inject the message box
-	var messageBox = doc.getElementById("tiddlyfox-message-box");
-	if (messageBox) {
-		var othersw = messageBox.getAttribute("data-message-box-creator") || null;
-		if (othersw) {
-			alert(othersaver1 + othersw + othersaver2);
-			return;
-		} else {
-			messageBox.setAttribute("data-message-box-creator", "savetiddlers");
-		}
-	} else {
-		messageBox = doc.createElement("div");
-		messageBox.id = "tiddlyfox-message-box";
-		messageBox.style.display = "none";
-		messageBox.setAttribute("data-message-box-creator", "savetiddlers");
-		doc.body.appendChild(messageBox);
-	}
-	// Attach the event handler to the message box
-	messageBox.addEventListener("tiddlyfox-save-file", function (event) {
-		// Get the details from the message
-		var message = event.target,
-			path,
-			content = message.getAttribute("data-tiddlyfox-content");
-		path = currentlocation();
-		// Remove the message element from the message box
-		message.parentNode.removeChild(message);
-		// Save the file
-
-		if (debouncing[path]) return;
-		debouncing[path] = true;
-		saveFile(path, content, backup, tw5, function (response) {
-			// Send a confirmation message
-			debouncing[path] = false;
-			var event1;
-			console.log("savetiddlers: response is " + response.status);
-			if (response.status === "failedloc" || response.status === "failedpath") {
-				chrome.storage.local.get({ nag: true }, function (items) {
-					if (items.nag) alert(patherrormsg);
-					finishSave(path, content, function (response) {
-						// from saveAs
-						console.log("savetiddlers: finishSave " + response.status);
-						if (response.status === "saved") {
-							if (response.newlocal) {
-								alert("you tiddlywiki has been saved to a new location \n" + response.newlocal);
-							}
-							event1 = doc.createEvent("Events");
-							event1.initEvent("tiddlyfox-have-saved-file", true, false);
-							event1.savedFilePath = path;
-							message.dispatchEvent(event1);
-						}
-						else {
-							console.log("savetiddlers: SAVEFAILURE");
-							//send failed
-						}
-
-					})
-				})
-			} else {
-				console.log("savetiddlers: savefile");
-				event1 = doc.createEvent("Events");
-				event1.initEvent("tiddlyfox-have-saved-file", true, false);
-				event1.savedFilePath = path;
-				message.dispatchEvent(event1);
-			}
-		});
-		return false;
-	}, false);
+    // Save the file
+    sendBackgroundAutoSaveCommand(path, content, function (response) {
+        // Send a confirmation message
+        logAutoSaveResponse(response);
+        if (response.status === "auto-saved") {
+            notifyTiddlyWiki(messageInfo, path);
+        } else {
+            onAutoSaveFailed(messageInfo, path, content, response);
+        }
+    });
+    return false;
 }
 
-function saveFile(filePath, content, backup, tw5, callback) {
-
-	// Save the file
-	try {
-		var msg = {};
-		msg.filePath = filePath;
-		msg.txt = content;
-		msg.backup = backup;
-		msg.type = "start";
-		msg.tw5 = tw5;
-		console.log("from cs: we are inside downloads at " + msg.filePath);
-		chrome.runtime.sendMessage(msg, callback);
-		return true;
-	} catch (ex) {
-		alert(ex);
-		return false;
-	}
+function onAutoSaveFailed(messageInfo, path, content, autoSaveResponse) {
+    chrome.storage.local.get({ "shows-warning": true }, function (items) {
+        console.log("twmate: auto-save failure");
+        if (items["shows-warning"]) {
+            if (autoSaveResponse.status === "root-dir-not-found"
+                || autoSaveResponse.status === "incompatible-root") {
+                alert(pathErrorMessage);
+            } else if (autoSaveResponse.status === "trial-save-error") {
+                alert(trialErrorMessage);
+            }
+        }
+        sendBackgroundManualSaveCommand(path, content, function (response) {
+            // from saveAs
+            logManualSaveResponse(response);
+            if (response.status === "manual-saved") {
+                if (response.path) {
+                    alert(saveAsMessage + response.path + ".");
+                }
+                notifyTiddlyWiki(messageInfo, path);
+            } else {
+                console.log("twmate: manual-save failure");
+                alert(finalSaveErrorMessage);
+            }
+        })
+    })
 }
 
-function finishSave(filePath, content, callback) {
+function notifyTiddlyWiki(messageInfo, path) {
+    // TiddlyFoxSaver in TiddlyWiki expects to receive this message
 
-	// Save the file without control
-	try {
-		var msg = {};
-		msg.filePath = filePath;
-		msg.txt = content;
-		msg.type = "finish"
-		console.log("from cs2: we are inside downloads at " + msg.filePath);
-		chrome.runtime.sendMessage(msg, callback);
-		return true;
-	} catch (ex) {
-		alert(ex);
-		return false;
-	}
+    var event = document.createEvent("Events");
+    event.initEvent("tiddlyfox-have-saved-file", true, false);
+    event.savedFilePath = path;
+    console.log("twmate: saved message sent for " + path);
+    messageInfo.dispatchEvent(event);
+}
+
+function logAutoSaveResponse(response) {
+    function addPath(message, pathName, path) {
+        return message + ", " + pathName + " = \"" + path + "\"";
+    }
+
+    var message = "twmate: auto-save response is " + response.status;;
+    if (response.status === "auto-saved") {
+        message = addPath(message, "path", response.path);
+    } else if (response.status === "root-dir-not-found") {
+        message = addPath(message, "root", response.root);
+        message = addPath(message, "path", response.path);
+    } else if (response.status === "incompatible-root") {
+        message = addPath(message, "root", response.root);
+        message = addPath(message, "downloadsDir", response.downloadsDir);
+    } else if (response.status === "trial-save-error") {
+        message += ", path = " + response.path;
+    }
+    console.log(message);
+}
+
+function logManualSaveResponse(response) {
+    function addPath(message, pathName, path) {
+        return message + ", " + pathName + " = \"" + path + "\"";
+    }
+
+    var message = "twmate: manual-save response is " + response.status;;
+    if (response.status === "manual-saved") {
+        message = addPath(message, "path", response.path);
+    } else if (response.status === "manual-save-cancelled") {
+        message = addPath(message, "path", response.path);
+    } else if (response.status === "manual-save-interrupted") {
+        message = addPath(message, "path", response.path);
+    } else if (response.status === "manual-save-error") {
+        message = addPath(message, "path", response.path);
+    }
+    console.log(message);
+}
+
+function sendBackgroundAutoSaveCommand(path, content, callback) {
+    try {
+        var command = {};
+        command.path = path;
+        command.content = content;
+        command.type = "auto-save";
+        command.isTiddlyWiki = isTiddlyWiki;
+        console.log("twmate: auto-save command sent for " + command.path);
+        chrome.runtime.sendMessage(command, callback);
+        return true;
+    } catch (e) {
+        alert(e);
+        return false;
+    }
+}
+
+function sendBackgroundManualSaveCommand(path, content, callback) {
+    try {
+        var command = {};
+        command.path = path;
+        command.content = content;
+        command.type = "manual-save"
+        command.isTiddlyWiki = isTiddlyWiki;
+        console.log("twmate: manual-save command sent for " + command.path);
+        chrome.runtime.sendMessage(command, callback);
+        return true;
+    } catch (e) {
+        alert(e);
+        return false;
+    }
 }

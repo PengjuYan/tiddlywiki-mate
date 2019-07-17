@@ -1,0 +1,2 @@
+1. validate the settings especially when folder names contains only whitespaces
+2. saving TiddlyWiki5
