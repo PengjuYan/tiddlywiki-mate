@@ -1,12 +1,12 @@
 {
   "manifest_version": 2,
-  "name": "TiddlyWiki Saver",
+  "name": "TiddlyWiki Mate",
   "version": "0.1",
   "description": "Save and backup your TiddlyWiki (classic or tw5).",
-  "applications": {
+  "browser_specific_settings": {
     "gecko": {
-      "id": "yanpengju@gmail.com",
-      "strict_min_version": "56.0"
+      "id": "{bdf7d98a-45da-4ea0-8d35-41933a445d72}",
+      "strict_min_version": "57.0"
     }
   },
   "icons": {
